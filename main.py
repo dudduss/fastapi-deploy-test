@@ -12,6 +12,7 @@ app = FastAPI(title="Hebbia v0", description="An early version of the Hebbia AI 
 embedding_mappings = {}
 doc_metadata_mappings = {}
 model = SentenceTransformer("sentence-transformers/msmarco-MiniLM-L-6-v3")
+MAX_TOKEN_SIZE = 100
 
 
 @app.get("/")
@@ -28,13 +29,20 @@ async def upload_file(file: UploadFile):
         embeddings = model.encode(chunks)
         return embeddings
 
+    def split_sentence_chunks(sentence):
+        chunks_arrs = []
+        sentence_words = sentence.split(" ")
+        for i in range(0, len(sentence_words), MAX_TOKEN_SIZE):
+            chunks_arrs.append(sentence_words[i : i + MAX_TOKEN_SIZE])
+        chunk_strings = [' '.join(chunk_arr) for chunk_arr in chunks_arrs]
+        print("chunk strings: ", chunk_strings)
+        return chunk_strings
+
     # Get random doc_id
     doc_id = random.randint(0, 1000000)
 
-    MAX_TOKEN_SIZE = 100
-
-    chunks = []
-    current_chunk = []
+    chunks = []  # array of strings
+    current_chunk = []  # array of strings
     current_chunk_length = 0
 
     try:
@@ -51,6 +59,7 @@ async def upload_file(file: UploadFile):
             sentences = contents.decode("utf-8").split(". ")
 
         for sentence in sentences:
+
             sentence = sentence.strip()
             sentence = sentence.replace("\n", "")
             sentence = re.sub(r"\s{2,}", " ", sentence)
@@ -58,13 +67,21 @@ async def upload_file(file: UploadFile):
                 current_chunk.append(sentence)
                 current_chunk_length += get_word_length(sentence)
             else:
-                chunks.append(". ".join(current_chunk) + ".")
-                # overlap
-                last_sentence = current_chunk[-1]
-                current_chunk = [last_sentence, sentence]
-                current_chunk_length = get_word_length(last_sentence) + get_word_length(
-                    sentence
-                )
+                if get_word_length(sentence) < MAX_TOKEN_SIZE:
+                    chunks.append(". ".join(current_chunk) + ".")
+                    # overlap
+                    last_sentence = current_chunk[-1]
+                    current_chunk = [last_sentence, sentence]
+                    current_chunk_length = get_word_length(
+                        last_sentence
+                    ) + get_word_length(sentence)
+                else:
+                    chunks.append(". ".join(current_chunk) + ".")
+                    sentence_chunks = split_sentence_chunks(sentence)
+                    for i in range(0, len(sentence_chunks) - 1):
+                        chunks.append(sentence_chunks[i] + ".")
+                    current_chunk = [sentence_chunks[-1]]
+                    current_chunk_length = get_word_length(sentence_chunks[-1])
 
         # Add the last chunk
         chunks.append(". ".join(current_chunk))
