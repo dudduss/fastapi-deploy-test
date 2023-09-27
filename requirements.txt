@@ -2,3 +2,4 @@ fastapi
 uvicorn[standard]
 algoliasearch
 python-decouple
+python-multipart
