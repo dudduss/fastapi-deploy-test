@@ -46,16 +46,14 @@ async def upload_file(file: UploadFile):
         if file.filename.endswith(".html"):
             soup = BeautifulSoup(contents, "html.parser")
             contents = soup.get_text()
-            contents = re.sub(r"\s{2,}", " ", contents)
-            contents = re.sub(r"\n+", "\n", contents)
-            sentences = contents.split(". ")
+            sentences = re.split("; |, ", contents)
         else:
             sentences = contents.decode("utf-8").split(". ")
 
-        # Iterate through sentences and create overlapping chunks
         for sentence in sentences:
             sentence = sentence.strip()
             sentence = sentence.replace("\n", "")
+            sentence = re.sub(r"\s{2,}", " ", sentence)
             if current_chunk_length + get_word_length(sentence) < MAX_TOKEN_SIZE:
                 current_chunk.append(sentence)
                 current_chunk_length += get_word_length(sentence)
