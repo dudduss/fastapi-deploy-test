@@ -8,6 +8,7 @@ from bs4 import BeautifulSoup
 import re
 import chromadb
 from typing import Optional
+from supabase import create_client, Client
 
 app = FastAPI(title="Hebbia v0", description="An early version of the Hebbia AI app")
 
@@ -20,6 +21,10 @@ MAX_TOKEN_SIZE = 100
 
 chroma_client = chromadb.Client()
 collection = chroma_client.create_collection(name="financial_passages")
+supabase: Client = create_client(
+    "https://zzkngsnmuuxvtkjelvhc.supabase.co",
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp6a25nc25tdXV4dnRramVsdmhjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTY5NTg1NzAyMywiZXhwIjoyMDExNDMzMDIzfQ.dZ7yD5cdd572ph2_nelH9ucwCq9s8UfDofu0T70Cf1M",
+)
 
 
 @app.get("/")
@@ -81,8 +86,19 @@ async def upload_file(file: UploadFile):
                 return company
         return "unknown"
 
-    # Get random doc_id
-    doc_id = random.randint(0, 1000000)
+    # Upload document to Supabase first
+    source = get_source()
+    file_type = get_file_type(file.filename)
+    company = get_company(file.filename)
+    metadata = {
+        "filename": file.filename,
+        "file_type": file_type,
+        "description": "",
+        "source": source,
+        "company": company,
+    }
+    data, count = supabase.table("documents").insert({"metadata": metadata}).execute()
+    document_id = data[1][0]["id"]
 
     chunks = []  # array of strings, each string is less than MAX_TOKEN_SIZE
     current_chunk = []  # array of sentences that will be put into a chunk
@@ -143,12 +159,9 @@ async def upload_file(file: UploadFile):
 
         # TODO - use hash of chunk + filename + date_uploaded to allow uploads of same file
         ids = [str(hash(chunk)) for chunk in chunks]
-        source = get_source()
-        file_type = get_file_type(file.filename)
-        company = get_company(file.filename)
         metadatas = [
             {
-                "doc_id": doc_id,
+                "doc_id": document_id,
                 "filename": file.filename,
                 "file_type": file_type,
                 "description": "",
@@ -164,6 +177,10 @@ async def upload_file(file: UploadFile):
             metadatas=metadatas,
             ids=ids,
         )
+
+        supabase.table("documents").update({"status": "indexed"}).eq(
+            "id", document_id
+        ).execute()
 
         ## Local Storage
         # for i in range(0, len(embeddings)):

@@ -6,3 +6,4 @@ python-multipart
 sentence-transformers
 beautifulsoup4
 chromadb
+supabase
