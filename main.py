@@ -3,11 +3,13 @@ from decouple import config
 from pydantic import BaseModel
 from sentence_transformers import SentenceTransformer
 import random
+import numpy as np
 
 app = FastAPI(title="Hebbia v0", description="An early version of the Hebbia AI app")
 
 embedding_mappings = {}
 doc_metadata_mappings = {}
+model = SentenceTransformer("sentence-transformers/msmarco-MiniLM-L-6-v3")
 
 
 @app.get("/")
@@ -21,7 +23,6 @@ async def upload_file(file: UploadFile):
         return len(sentence.split(" "))
 
     def encode_chunks(chunks):
-        model = SentenceTransformer("sentence-transformers/msmarco-MiniLM-L-6-v3")
         embeddings = model.encode(chunks)
         return embeddings
 
@@ -72,6 +73,7 @@ async def upload_file(file: UploadFile):
         # Store the metadata
         doc_metadata_mappings[doc_id] = {
             "filename": file.filename,
+            "num_chunks": len(chunks),
         }
 
         return {
@@ -94,11 +96,38 @@ async def mappings():
     print(embedding_mappings)
 
 
-@app.get("/metadata")
-async def metadata():
-    return doc_metadata_mappings
+@app.post("/ingest/bulk")
+async def ingest_bulk(files: list[UploadFile]):
+    pass
 
 
 @app.post("/search")
 async def search(query: SearchQuery):
-    return query
+    results = []
+    MAX_RESULTS_SIZE = 5
+    query_embedding = model.encode([query.query])[0]
+    for embedding_key in embedding_mappings.keys():
+        ## convert embedding_key tuple into np array
+        embedding = np.array(embedding_key)
+        ## calculate cosine similarity
+        cosine_similarity = np.dot(query_embedding, embedding) / (
+            np.linalg.norm(query_embedding) * np.linalg.norm(embedding)
+        )
+
+        print("cosine_similarity", cosine_similarity)
+        embedding_value = embedding_mappings[embedding_key]
+        results.append(
+            {
+                "confidence": round(float(cosine_similarity), 5),
+                "doc_id": embedding_value["doc_id"],
+                "passage": embedding_value["passage"],
+                "metadata": doc_metadata_mappings[embedding_value["doc_id"]],
+            }
+        )
+
+    ## sort by cosine similarity in descending order
+    results.sort(key=lambda x: x["confidence"], reverse=True)
+
+    ## return the top 5 results
+    results = results[:MAX_RESULTS_SIZE]
+    return results
