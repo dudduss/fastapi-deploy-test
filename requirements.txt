@@ -5,3 +5,4 @@ python-decouple
 python-multipart
 sentence-transformers
 beautifulsoup4
+chromadb
