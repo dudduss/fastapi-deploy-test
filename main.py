@@ -35,7 +35,6 @@ async def upload_file(file: UploadFile):
         for i in range(0, len(sentence_words), MAX_TOKEN_SIZE):
             chunks_arrs.append(sentence_words[i : i + MAX_TOKEN_SIZE])
         chunk_strings = [" ".join(chunk_arr) for chunk_arr in chunks_arrs]
-        print("chunk strings: ", chunk_strings)
         return chunk_strings
 
     # Get random doc_id
@@ -46,6 +45,7 @@ async def upload_file(file: UploadFile):
     current_chunk_length = 0
 
     try:
+        print('Beginning to upload file: "' + file.filename + '"')
         sentences = []
         # Read the content
         contents = await file.read()
@@ -85,7 +85,8 @@ async def upload_file(file: UploadFile):
                     chunks.append(". ".join(current_chunk) + ".")
                     sentence_chunks = split_sentence_chunks(sentence)
                     for i in range(0, len(sentence_chunks) - 1):
-                        chunks.append(sentence_chunks[i] + ".")
+                        # don't add period because not an actual sentence
+                        chunks.append(sentence_chunks[i])
                     current_chunk = [sentence_chunks[-1]]
                     current_chunk_length = get_token_length(sentence_chunks[-1])
 
@@ -113,10 +114,12 @@ async def upload_file(file: UploadFile):
             "chunks": chunks,
             "metadata": {
                 "filename": file.filename,
+                "num_chunks": len(chunks),
             },
         }
 
     except Exception as e:
+        print('Failed to upload file: "' + file.filename + "with error " + str(e) + '"')
         return {"error": str(e)}
 
 
@@ -131,7 +134,16 @@ async def mappings():
 
 @app.post("/ingest/bulk")
 async def ingest_bulk(files: list[UploadFile]):
-    pass
+    results = []
+    for file in files:
+        result = await upload_file(file)
+        result = {
+            "filename": file.filename,
+            "chunks": result["chunks"],
+            "metadata": result["metadata"],
+        }
+        results.append(result)
+    return results
 
 
 @app.post("/search")
