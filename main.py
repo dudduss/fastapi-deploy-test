@@ -22,7 +22,7 @@ async def root():
 
 @app.post("/upload")
 async def upload_file(file: UploadFile):
-    def get_word_length(sentence):
+    def get_token_length(sentence):
         return len(sentence.split(" "))
 
     def encode_chunks(chunks):
@@ -34,15 +34,15 @@ async def upload_file(file: UploadFile):
         sentence_words = sentence.split(" ")
         for i in range(0, len(sentence_words), MAX_TOKEN_SIZE):
             chunks_arrs.append(sentence_words[i : i + MAX_TOKEN_SIZE])
-        chunk_strings = [' '.join(chunk_arr) for chunk_arr in chunks_arrs]
+        chunk_strings = [" ".join(chunk_arr) for chunk_arr in chunks_arrs]
         print("chunk strings: ", chunk_strings)
         return chunk_strings
 
     # Get random doc_id
     doc_id = random.randint(0, 1000000)
 
-    chunks = []  # array of strings
-    current_chunk = []  # array of strings
+    chunks = []  # array of strings, each string is less than MAX_TOKEN_SIZE
+    current_chunk = []  # array of sentences that will be put into a chunk
     current_chunk_length = 0
 
     try:
@@ -54,36 +54,42 @@ async def upload_file(file: UploadFile):
         if file.filename.endswith(".html"):
             soup = BeautifulSoup(contents, "html.parser")
             contents = soup.get_text()
-            sentences = re.split("; |, ", contents)
+            sentences = re.split(r"\n ", contents)
         else:
             sentences = contents.decode("utf-8").split(". ")
 
         for sentence in sentences:
-
+            # Preprocessing the sentence
             sentence = sentence.strip()
             sentence = sentence.replace("\n", "")
             sentence = re.sub(r"\s{2,}", " ", sentence)
-            if current_chunk_length + get_word_length(sentence) < MAX_TOKEN_SIZE:
+
+            # If the sentence can fit in the current chunk, add it
+            if current_chunk_length + get_token_length(sentence) < MAX_TOKEN_SIZE:
                 current_chunk.append(sentence)
-                current_chunk_length += get_word_length(sentence)
+                current_chunk_length += get_token_length(sentence)
             else:
-                if get_word_length(sentence) < MAX_TOKEN_SIZE:
+                # If the sentence cannot fit in the current chunk, add the current chunk to the chunks array
+                # and create a new chunk with the sentence and the last sentence as an overlap
+                if get_token_length(sentence) < MAX_TOKEN_SIZE:
                     chunks.append(". ".join(current_chunk) + ".")
                     # overlap
                     last_sentence = current_chunk[-1]
                     current_chunk = [last_sentence, sentence]
-                    current_chunk_length = get_word_length(
+                    current_chunk_length = get_token_length(
                         last_sentence
-                    ) + get_word_length(sentence)
+                    ) + get_token_length(sentence)
+                # If the sentence is too long to fit in a chunk, split the sentence into smaller chunks
+                # and add the remainder to the current_chunk
                 else:
                     chunks.append(". ".join(current_chunk) + ".")
                     sentence_chunks = split_sentence_chunks(sentence)
                     for i in range(0, len(sentence_chunks) - 1):
                         chunks.append(sentence_chunks[i] + ".")
                     current_chunk = [sentence_chunks[-1]]
-                    current_chunk_length = get_word_length(sentence_chunks[-1])
+                    current_chunk_length = get_token_length(sentence_chunks[-1])
 
-        # Add the last chunk
+        # Add the last remaining chunk
         chunks.append(". ".join(current_chunk))
 
         # Encode the chunks and store in local storage
