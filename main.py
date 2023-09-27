@@ -7,6 +7,7 @@ import numpy as np
 from bs4 import BeautifulSoup
 import re
 import chromadb
+from typing import Optional
 
 app = FastAPI(title="Hebbia v0", description="An early version of the Hebbia AI app")
 
@@ -142,14 +143,17 @@ async def upload_file(file: UploadFile):
 
         # TODO - use hash of chunk + filename + date_uploaded to allow uploads of same file
         ids = [str(hash(chunk)) for chunk in chunks]
+        source = get_source()
+        file_type = get_file_type(file.filename)
+        company = get_company(file.filename)
         metadatas = [
             {
                 "doc_id": doc_id,
                 "filename": file.filename,
-                "file_type": get_file_type(file.filename),
+                "file_type": file_type,
                 "description": "",
-                "source": get_source(),
-                "company": get_company(file.filename),
+                "source": source,
+                "company": company,
             }
             for chunk in chunks
         ]
@@ -186,6 +190,12 @@ async def upload_file(file: UploadFile):
 
 class SearchQuery(BaseModel):
     query: str
+    company: Optional[str] = None
+    source: Optional[str] = None
+    file_type: Optional[str] = None
+
+    class Config:
+        extra = "forbid"
 
 
 @app.post("/ingest/bulk")
@@ -204,8 +214,20 @@ async def ingest_bulk(files: list[UploadFile]):
 
 @app.post("/passages/search")
 async def search(query: SearchQuery):
-    result = collection.query(query_texts=[query.query], n_results=5)
-    # print("chrroma result: ", result)
+    filters = {}
+    if query.company:
+        filters["company"] = query.company
+    if query.source:
+        filters["source"] = query.source
+    if query.file_type:
+        filters["file_type"] = query.file_type
+
+    result = collection.query(
+        query_texts=[query.query],
+        n_results=5,
+        where=filters,
+    )
+
     passages = [
         {
             "id": result["ids"][0][i],
