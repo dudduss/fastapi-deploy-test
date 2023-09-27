@@ -4,6 +4,8 @@ from pydantic import BaseModel
 from sentence_transformers import SentenceTransformer
 import random
 import numpy as np
+from bs4 import BeautifulSoup
+import re
 
 app = FastAPI(title="Hebbia v0", description="An early version of the Hebbia AI app")
 
@@ -36,9 +38,19 @@ async def upload_file(file: UploadFile):
     current_chunk_length = 0
 
     try:
+        sentences = []
         # Read the content
         contents = await file.read()
-        sentences = contents.decode("utf-8").split(". ")
+
+        # Separate logic if html
+        if file.filename.endswith(".html"):
+            soup = BeautifulSoup(contents, "html.parser")
+            contents = soup.get_text()
+            contents = re.sub(r"\s{2,}", " ", contents)
+            contents = re.sub(r"\n+", "\n", contents)
+            sentences = contents.split(". ")
+        else:
+            sentences = contents.decode("utf-8").split(". ")
 
         # Iterate through sentences and create overlapping chunks
         for sentence in sentences:
@@ -114,7 +126,6 @@ async def search(query: SearchQuery):
             np.linalg.norm(query_embedding) * np.linalg.norm(embedding)
         )
 
-        print("cosine_similarity", cosine_similarity)
         embedding_value = embedding_mappings[embedding_key]
         results.append(
             {
