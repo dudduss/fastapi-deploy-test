@@ -1,2 +1,3 @@
 .env
 hvenv/
+.DS_Store

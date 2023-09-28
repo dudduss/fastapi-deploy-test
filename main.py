@@ -46,33 +46,23 @@ supabase: Client = create_client(
 )
 
 
-@app.get("/")
-async def root():
-    result = gpt.get_company_ticker_from_input(
-        "How is Adobe and Salesforce doing these days?"
-    )
-    pattern = r"\[([^\]]*)\]"
-    matches = re.findall(pattern, result)
-    result = " ".join(matches)
-    companies = []
-    try:
-        companies = literal_eval(result)
-    except:
-        print("Couldn't find tickers in input")
-    return companies
+# @app.get("/")
+# async def root():
+#     result = gpt.get_company_ticker_from_input(
+#         "How is Adobe and Salesforce doing these days?"
+#     )
+#     pattern = r"\[([^\]]*)\]"
+#     matches = re.findall(pattern, result)
+#     result = " ".join(matches)
+#     companies = []
+#     try:
+#         companies = literal_eval(result)
+#     except:
+#         print("Couldn't find tickers in input")
+#     return companies
 
-    result = gpt.get_ticker_from_filename("Tesla, Inc. _ 8-K (April 03, 2023).html")
-    return result
-
-
-@app.post("/documents/test", tags=["documents"])
-async def test(file: UploadFile):
-    if file.filename.endswith(".html"):
-        contents = await file.read()
-        soup = BeautifulSoup(contents, "html.parser")
-        title_tag = soup.find("title")
-        title_tag_parts = title_tag.string.split("-")
-        return title_tag_parts[0].strip()
+#     result = gpt.get_ticker_from_filename("Tesla, Inc. _ 8-K (April 03, 2023).html")
+#     return result
 
 
 @app.post("/documents/", tags=["documents"])
@@ -104,29 +94,28 @@ async def upload_file(file: UploadFile):
         sources = ["sharepoint", "drive", "dropbox", "file_upload", "email"]
         return random.choice(sources)
 
-    def get_company(filename):
-        companies = [
-            "amazon",
-            "apple",
-            "ford",
-            "netflix",
-            "nikola",
-            "salesforce",
-            "tesla",
-            "walt disney",
-        ]  # hardcoded, can change to LLM based approach later
+    # def get_company(filename):
+    #     companies = [
+    #         "amazon",
+    #         "apple",
+    #         "ford",
+    #         "netflix",
+    #         "nikola",
+    #         "salesforce",
+    #         "tesla",
+    #         "walt disney",
+    #     ]  # hardcoded, can change to LLM based approach later
 
-        filename = filename.lower()
-        for company in companies:
-            if company in filename:
-                return company
-        return "unknown"
+    #     filename = filename.lower()
+    #     for company in companies:
+    #         if company in filename:
+    #             return company
+    #     return "unknown"
 
     # Upload document to Supabase first
     source = get_source()
     file_type = get_file_type(file.filename)
     company = ""
-    # company = get_company(file.filename)
     metadata = {
         "filename": file.filename,
         "file_type": file_type,
@@ -213,7 +202,7 @@ async def upload_file(file: UploadFile):
 
         collection.add(
             documents=chunks,
-            # embeddings=embeddings,
+            embeddings=embeddings,
             metadatas=metadatas,
             ids=ids,
         )
@@ -354,9 +343,9 @@ async def update_document(document_id: str, metadata: dict):
     return data[1][0]
 
 
-@app.post("/db/clear")
-async def clear_db():
-    chroma_client.reset()
+# @app.post("/db/clear")
+# async def clear_db():
+#     chroma_client.reset()
 
     ## Local Storage approach
     # results = []
