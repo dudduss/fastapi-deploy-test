@@ -9,6 +9,8 @@ import re
 import chromadb
 from typing import Optional
 from supabase import create_client, Client
+from services import gpt
+from ast import literal_eval
 
 tags_metadata = [
     {
@@ -46,14 +48,22 @@ supabase: Client = create_client(
 
 @app.get("/")
 async def root():
-    collection.add(
-        documents=["This is a document", "This is another document"],
-        metadatas=[{"source": "my_source"}, {"source": "my_source"}],
-        ids=["id1", "id2"],
-    )
+    # result = gpt.get_company_name_from_input("Apple and Amazon are companies")
+    # companies = literal_eval(result)
+    # return companies
 
-    results = collection.query(query_texts=["This is a query document"], n_results=2)
-    return results
+    result = gpt.get_ticker_from_filename("Tesla, Inc. _ 8-K (April 03, 2023).html")
+    return result
+
+
+@app.post("/documents/test", tags=["documents"])
+async def test(file: UploadFile):
+    if file.filename.endswith(".html"):
+        contents = await file.read()
+        soup = BeautifulSoup(contents, "html.parser")
+        title_tag = soup.find("title")
+        title_tag_parts = title_tag.string.split("-")
+        return title_tag_parts[0].strip()
 
 
 @app.post("/documents/", tags=["documents"])
@@ -106,7 +116,8 @@ async def upload_file(file: UploadFile):
     # Upload document to Supabase first
     source = get_source()
     file_type = get_file_type(file.filename)
-    company = get_company(file.filename)
+    company = ""
+    # company = get_company(file.filename)
     metadata = {
         "filename": file.filename,
         "file_type": file_type,
@@ -132,6 +143,9 @@ async def upload_file(file: UploadFile):
             soup = BeautifulSoup(contents, "html.parser")
             contents = soup.get_text()
             sentences = re.split(r"\n ", contents)
+            title_tag = soup.find("title")
+            title_tag_parts = title_tag.string.split("-")
+            company = title_tag_parts[0].strip().upper()
         else:
             sentences = contents.decode("utf-8").split(". ")
 
@@ -195,9 +209,9 @@ async def upload_file(file: UploadFile):
             ids=ids,
         )
 
-        supabase.table("documents").update({"status": "indexed", "passages": ids}).eq(
-            "id", document_id
-        ).execute()
+        supabase.table("documents").update(
+            {"status": "indexed", "passages": ids, "metadata": metadatas[0]}
+        ).eq("id", document_id).execute()
 
         ## Local Storage
         # for i in range(0, len(embeddings)):
