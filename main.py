@@ -271,15 +271,28 @@ class SearchQuery(BaseModel):
 
 @app.post("/passages/search", tags=["passages"])
 async def search(query: SearchQuery):
-
-    
-
-
     filters = {}
     if len(query.companies) > 0:
         filters["company"] = {
             "$in": query.companies,
         }
+    else:
+        result = gpt.get_company_ticker_from_input(query.query)
+        print("result: ", result)
+        pattern = r"\[([^\]]*)\]"
+        matches = re.findall(pattern, result)
+        result = " ".join(matches)
+        companies_parsed = []
+
+        try:
+            companies_parsed = literal_eval(result)
+            if isinstance(companies_parsed, str):
+                companies_parsed = [companies_parsed]
+            filters["company"] = {
+                "$in": companies_parsed,
+            }
+        except:
+            print("Couldn't find tickers in input")
     if len(query.sources) > 0:
         filters["source"] = {
             "$in": query.sources,

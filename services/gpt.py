@@ -32,9 +32,9 @@ def get_company_ticker_from_input(input):
     system_msg = "You are a helpful assistant for a search engine."
     # Define the user message
     user_msg = (
-        "Figure out what company tickers are mentioned in this input "
+        "Figure out what companies are mentioned in this input"
         + input
-        + ". Please return the tickers as an array of strings. Just return the array."
+        + " and return an array of the companies' stock tickers. Just return the array.\n\nExample 1: Microsoft released new stuff today. Output: ['MSFT']\nExample 2: Salesforce just acquired Slack. Output: ['CRM']\nExample 3: Apple and Amazon just had huge earnings days. Output:['AAPL', 'AMZN']"
     )
 
     response = openai.ChatCompletion.create(
@@ -43,7 +43,7 @@ def get_company_ticker_from_input(input):
             {"role": "system", "content": system_msg},
             {"role": "user", "content": user_msg},
         ],
-        temperature=0.0,
+        temperature=0.3,
     )
 
     print("response: ", response)
