@@ -26,15 +26,15 @@ def get_ticker_from_filename(filename):
     return ai_message
 
 
-def get_company_name_from_input(input):
+def get_company_ticker_from_input(input):
     # Define the system message
 
     system_msg = "You are a helpful assistant for a search engine."
     # Define the user message
     user_msg = (
-        "Figure out what companies are mentioned in this input "
+        "Figure out what company tickers are mentioned in this input "
         + input
-        + ". Please return it as a array of strings. Just return the array."
+        + ". Please return the tickers as an array of strings. Just return the array."
     )
 
     response = openai.ChatCompletion.create(

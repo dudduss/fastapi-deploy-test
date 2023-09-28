@@ -7,7 +7,7 @@ import numpy as np
 from bs4 import BeautifulSoup
 import re
 import chromadb
-from typing import Optional
+from typing import Optional, List
 from supabase import create_client, Client
 from services import gpt
 from ast import literal_eval
@@ -48,9 +48,18 @@ supabase: Client = create_client(
 
 @app.get("/")
 async def root():
-    # result = gpt.get_company_name_from_input("Apple and Amazon are companies")
-    # companies = literal_eval(result)
-    # return companies
+    result = gpt.get_company_ticker_from_input(
+        "How is Adobe and Salesforce doing these days?"
+    )
+    pattern = r"\[([^\]]*)\]"
+    matches = re.findall(pattern, result)
+    result = " ".join(matches)
+    companies = []
+    try:
+        companies = literal_eval(result)
+    except:
+        print("Couldn't find tickers in input")
+    return companies
 
     result = gpt.get_ticker_from_filename("Tesla, Inc. _ 8-K (April 03, 2023).html")
     return result
@@ -252,9 +261,9 @@ async def ingest_bulk(files: list[UploadFile]):
 
 class SearchQuery(BaseModel):
     query: str
-    company: Optional[str] = None
-    source: Optional[str] = None
-    file_type: Optional[str] = None
+    companies: List[str] = []
+    sources: List[str] = []
+    file_types: List[str] = []
 
     class Config:
         extra = "forbid"
@@ -262,13 +271,23 @@ class SearchQuery(BaseModel):
 
 @app.post("/passages/search", tags=["passages"])
 async def search(query: SearchQuery):
+
+    
+
+
     filters = {}
-    if query.company:
-        filters["company"] = query.company
-    if query.source:
-        filters["source"] = query.source
-    if query.file_type:
-        filters["file_type"] = query.file_type
+    if len(query.companies) > 0:
+        filters["company"] = {
+            "$in": query.companies,
+        }
+    if len(query.sources) > 0:
+        filters["source"] = {
+            "$in": query.sources,
+        }
+    if len(query.file_types) > 0:
+        filters["file_type"] = {
+            "$in": query.file_types,
+        }
 
     result = collection.query(
         query_texts=[query.query],
@@ -285,7 +304,7 @@ async def search(query: SearchQuery):
         }
         for i in range(0, len(result["ids"][0]))
     ]
-    return passages
+    return {"filters": filters, "hits": passages}
 
 
 @app.get("/documents", tags=["documents"])
