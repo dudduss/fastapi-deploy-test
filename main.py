@@ -202,7 +202,7 @@ async def upload_file(file: UploadFile):
 
         collection.add(
             documents=chunks,
-            embeddings=embeddings,
+            # embeddings=embeddings, # Own embeddings not working, using ChromaDB embeddings
             metadatas=metadatas,
             ids=ids,
         )
@@ -347,31 +347,31 @@ async def update_document(document_id: str, metadata: dict):
 # async def clear_db():
 #     chroma_client.reset()
 
-    ## Local Storage approach
-    # results = []
-    # MAX_RESULTS_SIZE = 5
-    # query_embedding = model.encode([query.query])[0]
-    # for embedding_key in embedding_mappings.keys():
-    #     ## convert embedding_key tuple into np array
-    #     embedding = np.array(embedding_key)
-    #     ## calculate cosine similarity
-    #     cosine_similarity = np.dot(query_embedding, embedding) / (
-    #         np.linalg.norm(query_embedding) * np.linalg.norm(embedding)
-    #     )
+## Local Storage approach
+# results = []
+# MAX_RESULTS_SIZE = 5
+# query_embedding = model.encode([query.query])[0]
+# for embedding_key in embedding_mappings.keys():
+#     ## convert embedding_key tuple into np array
+#     embedding = np.array(embedding_key)
+#     ## calculate cosine similarity
+#     cosine_similarity = np.dot(query_embedding, embedding) / (
+#         np.linalg.norm(query_embedding) * np.linalg.norm(embedding)
+#     )
 
-    #     embedding_value = embedding_mappings[embedding_key]
-    #     results.append(
-    #         {
-    #             "confidence": round(float(cosine_similarity), 5),
-    #             "doc_id": embedding_value["doc_id"],
-    #             "passage": embedding_value["passage"],
-    #             "metadata": doc_metadata_mappings[embedding_value["doc_id"]],
-    #         }
-    #     )
+#     embedding_value = embedding_mappings[embedding_key]
+#     results.append(
+#         {
+#             "confidence": round(float(cosine_similarity), 5),
+#             "doc_id": embedding_value["doc_id"],
+#             "passage": embedding_value["passage"],
+#             "metadata": doc_metadata_mappings[embedding_value["doc_id"]],
+#         }
+#     )
 
-    # ## sort by cosine similarity in descending order
-    # results.sort(key=lambda x: x["confidence"], reverse=True)
+# ## sort by cosine similarity in descending order
+# results.sort(key=lambda x: x["confidence"], reverse=True)
 
-    # ## return the top 5 results
-    # results = results[:MAX_RESULTS_SIZE]
-    # return results
+# ## return the top 5 results
+# results = results[:MAX_RESULTS_SIZE]
+# return results
