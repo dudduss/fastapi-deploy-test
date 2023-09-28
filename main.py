@@ -10,7 +10,24 @@ import chromadb
 from typing import Optional
 from supabase import create_client, Client
 
-app = FastAPI(title="Hebbia v0", description="An early version of the Hebbia AI app")
+tags_metadata = [
+    {
+        "name": "documents",
+        "description": "Operations with documents. Manage and search documents.",
+    },
+    {
+        "name": "passages",
+        "description": "Operations with passages. Manage and search passages within documents.",
+    },
+    # Add more tags as needed
+]
+
+app = FastAPI(
+    title="Hebbia v0",
+    description="An early version of the Hebbia AI app",
+    openapi_tags=tags_metadata,
+)
+
 
 ## Local Storage
 # embedding_mappings = {}
@@ -39,7 +56,7 @@ async def root():
     return results
 
 
-@app.post("/documents")
+@app.post("/documents/", tags=["documents"])
 async def upload_file(file: UploadFile):
     def get_token_length(sentence):
         return len(sentence.split(" "))
@@ -178,7 +195,7 @@ async def upload_file(file: UploadFile):
             ids=ids,
         )
 
-        supabase.table("documents").update({"status": "indexed"}).eq(
+        supabase.table("documents").update({"status": "indexed", "passages": ids}).eq(
             "id", document_id
         ).execute()
 
@@ -205,17 +222,7 @@ async def upload_file(file: UploadFile):
         return {"error": str(e)}
 
 
-class SearchQuery(BaseModel):
-    query: str
-    company: Optional[str] = None
-    source: Optional[str] = None
-    file_type: Optional[str] = None
-
-    class Config:
-        extra = "forbid"
-
-
-@app.post("/ingest/bulk")
+@app.post("/documents/bulk", tags=["documents"])
 async def ingest_bulk(files: list[UploadFile]):
     results = []
     for file in files:
@@ -229,7 +236,17 @@ async def ingest_bulk(files: list[UploadFile]):
     return results
 
 
-@app.post("/passages/search")
+class SearchQuery(BaseModel):
+    query: str
+    company: Optional[str] = None
+    source: Optional[str] = None
+    file_type: Optional[str] = None
+
+    class Config:
+        extra = "forbid"
+
+
+@app.post("/passages/search", tags=["passages"])
 async def search(query: SearchQuery):
     filters = {}
     if query.company:
@@ -255,6 +272,40 @@ async def search(query: SearchQuery):
         for i in range(0, len(result["ids"][0]))
     ]
     return passages
+
+
+@app.get("/documents", tags=["documents"])
+async def get_documents():
+    data, count = supabase.table("documents").select("*").execute()
+    return {"documents": data[1]}
+
+
+@app.get("/documents/{document_id}", tags=["documents"])
+async def get_document(document_id: str):
+    data, count = (
+        supabase.table("documents").select("*").eq("id", document_id).execute()
+    )
+    return data[1][0]
+
+
+@app.patch("/documents/{document_id}", tags=["documents"])
+async def update_document(document_id: str, metadata: dict):
+    # Update Supabase SQL
+    data, count = (
+        supabase.table("documents")
+        .update({"metadata": metadata})
+        .eq("id", document_id)
+        .execute()
+    )
+
+    document = data[1][0]
+    # Update ChromaDB
+    collection.update(
+        ids=document["passages"],
+        metadatas=[metadata] * len(document["passages"]),
+    )
+
+    return data[1][0]
 
 
 @app.post("/db/clear")
